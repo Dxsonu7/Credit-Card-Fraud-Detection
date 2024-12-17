@@ -28,3 +28,10 @@ data %>%
   geom_bar(fill = "steelblue") +
   labs(title = "Class Distribution", x = "Class", y = "Count")
 
+# Check for missing values
+colSums(is.na(data))
+
+# Summary of numeric features (central tendency)
+data %>%
+  select(-Class) %>%
+  summary()
