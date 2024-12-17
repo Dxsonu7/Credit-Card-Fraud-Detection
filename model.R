@@ -6,6 +6,7 @@ library(xgboost)         # XGBoost model
 library(keras)           # Artificial Neural Network
 library(yardstick)       # Model evaluation (AUC, confusion matrix)
 library(corrplot)
+library(reticulate)
 
 
 ## Read data and define research
@@ -102,34 +103,41 @@ xgb_model <- xgb.train(params = params, data = dtrain, nrounds = 100,
 xgb_preds <- predict(xgb_model, as.matrix(X_test))
 xgb_class <- ifelse(xgb_preds > 0.5, 1, 0)
 
+# Confusion Matrix
+confusion_matrix_xgb <- confusionMatrix(as.factor(xgb_class), as.factor(y_test))
+print(confusion_matrix_xgb)
 
-# Prepare data for Keras
-X_train_keras <- as.matrix(X_train)
-X_test_keras <- as.matrix(X_test)
-
-y_train_keras <- to_categorical(y_train)
-y_test_keras <- to_categorical(y_test)
-
-
-# Define the ANN
-ann_model <- keras_model_sequential() %>%
-  layer_dense(units = 16, activation = "relu", input_shape = ncol(X_train_keras)) %>%
-  layer_dropout(rate = 0.5) %>%
-  layer_dense(units = 8, activation = "relu") %>%
-  layer_dense(units = 2, activation = "softmax")
-
-# Compile
-ann_model %>% compile(
-  loss = "binary_crossentropy",
-  optimizer = optimizer_adam(),
-  metrics = c("accuracy")
-)
-
-# Train
-history <- ann_model %>% fit(X_train_keras, y_train_keras, epochs = 20, batch_size = 32)
+# AUC
+roc_auc_xgb <- roc_auc_vec(as.factor(y_test), xgb_preds)
+print(paste("XGBoost AUC:", roc_auc_xgb))
 
 
+print(paste("XGBoost AUC:", roc_auc_xgb))
 
 
+# Install and load necessary libraries
+library(randomForest)  # For Random Forest
+library(yardstick)     # For evaluation metrics
 
+# Train a Random Forest model
+rf_model <- randomForest(Class ~ ., data = train_data, ntree = 100, importance = TRUE)
 
+# Make predictions on the training and test data
+rf_train_preds <- predict(rf_model, newdata = train_data)
+rf_test_preds <- predict(rf_model, newdata = test_data)
+
+# Confusion Matrix for train and test predictions
+train_cm_rf <- confusionMatrix(as.factor(rf_train_preds), as.factor(y_train))
+test_cm_rf <- confusionMatrix(as.factor(rf_test_preds), as.factor(y_test))
+
+# Print the confusion matrix
+print(train_cm_rf)
+print(test_cm_rf)
+
+# Calculate F1 score
+f1_train_rf <- f_meas(as.factor(y_train), as.factor(rf_train_preds), positive = "1")
+f1_test_rf <- f_meas(as.factor(y_test), as.factor(rf_test_preds), positive = "1")
+
+# Print F1 scores
+print(paste("Random Forest F1 Score (Train):", f1_train_rf))
+print(paste("Random Forest F1 Score (Test):", f1_test_rf))
