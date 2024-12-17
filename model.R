@@ -1,5 +1,4 @@
 ## Load Libaries
-
 library(tidyverse)       # Data manipulation and visualization
 library(caret)           # Train-test split, preprocessing
 library(recipes)         # Preprocessing steps
@@ -8,8 +7,8 @@ library(keras)           # Artificial Neural Network
 library(yardstick)       # Model evaluation (AUC, confusion matrix)
 library(corrplot)
 
-## Read data and define research
 
+## Read data and define research
 data <- read_csv("creditcard.csv")
 
 # Basic structure, dimension and summary
@@ -18,10 +17,12 @@ dim(data)
 glimpse(data)
 summary(data)
 
+
 # Check for class imbalance
 data %>%
   count(Class) %>%
   mutate(percentage = n / sum(n) * 100) 
+
   
 # Visualize class imbalance
 data %>%
@@ -29,13 +30,16 @@ data %>%
   geom_bar(fill = "steelblue") +
   labs(title = "Class Distribution", x = "Class", y = "Count")
 
+
 # Check for missing values
 colSums(is.na(data))
+
 
 # Summary of numeric features (central tendency)
 data %>%
   select(-Class) %>%
   summary()
+
 
 # Boxplot for outliers in a few variables
 data %>%
@@ -44,9 +48,11 @@ data %>%
   geom_boxplot(fill = "lightblue") +
   labs(title = "Boxplots of Features")
 
+
 # Correlation Heatmap
 cor_matrix <- cor(data %>% select(-Class))
 corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.6)
+
 
 # Train-test split
 set.seed(42)
@@ -55,11 +61,13 @@ train_index <- createDataPartition(data$Class, p = 0.8, list = FALSE)
 train_data <- data[train_index, ]
 test_data <- data[-train_index, ]
 
+
 # Define preprocessing recipe
 rec <- recipe(Class ~ ., data = train_data) %>%
   step_center(all_predictors()) %>%
   step_scale(all_predictors()) %>%
   prep()
+
 
 # Apply scaling
 X_train <- bake(rec, new_data = train_data) %>% select(-Class)
@@ -67,5 +75,35 @@ y_train <- train_data$Class
 
 X_test <- bake(rec, new_data = test_data) %>% select(-Class)
 y_test <- test_data$Class
+
+
+# Convert to xgb.DMatrix
+dtrain <- xgb.DMatrix(data = as.matrix(X_train), label = y_train)
+dtest <- xgb.DMatrix(data = as.matrix(X_test), label = y_test)
+
+
+# XGBoost parameters
+params <- list(
+  objective = "binary:logistic",
+  eval_metric = "auc",
+  max_depth = 6,
+  eta = 0.1,
+  subsample = 0.8,
+  colsample_bytree = 0.8
+)
+
+
+# Train the model
+xgb_model <- xgb.train(params = params, data = dtrain, nrounds = 100,
+                       watchlist = list(train = dtrain), verbose = 0)
+
+
+# Predict probabilities
+xgb_preds <- predict(xgb_model, as.matrix(X_test))
+xgb_class <- ifelse(xgb_preds > 0.5, 1, 0)
+
+
+
+
 
 
