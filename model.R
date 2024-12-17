@@ -55,6 +55,17 @@ train_index <- createDataPartition(data$Class, p = 0.8, list = FALSE)
 train_data <- data[train_index, ]
 test_data <- data[-train_index, ]
 
+# Define preprocessing recipe
+rec <- recipe(Class ~ ., data = train_data) %>%
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors()) %>%
+  prep()
 
+# Apply scaling
+X_train <- bake(rec, new_data = train_data) %>% select(-Class)
+y_train <- train_data$Class
+
+X_test <- bake(rec, new_data = test_data) %>% select(-Class)
+y_test <- test_data$Class
 
 
