@@ -6,6 +6,7 @@ library(recipes)         # Preprocessing steps
 library(xgboost)         # XGBoost model
 library(keras)           # Artificial Neural Network
 library(yardstick)       # Model evaluation (AUC, confusion matrix)
+library(corrplot)
 
 ## Read data and define research
 
@@ -35,3 +36,15 @@ colSums(is.na(data))
 data %>%
   select(-Class) %>%
   summary()
+
+# Boxplot for outliers in a few variables
+data %>%
+  gather(key = "feature", value = "value", V1:V5) %>%
+  ggplot(aes(x = feature, y = value)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Boxplots of Features")
+
+# Correlation Heatmap
+cor_matrix <- cor(data %>% select(-Class))
+corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.6)
+
