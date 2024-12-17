@@ -103,6 +103,32 @@ xgb_preds <- predict(xgb_model, as.matrix(X_test))
 xgb_class <- ifelse(xgb_preds > 0.5, 1, 0)
 
 
+# Prepare data for Keras
+X_train_keras <- as.matrix(X_train)
+X_test_keras <- as.matrix(X_test)
+
+y_train_keras <- to_categorical(y_train)
+y_test_keras <- to_categorical(y_test)
+
+
+# Define the ANN
+ann_model <- keras_model_sequential() %>%
+  layer_dense(units = 16, activation = "relu", input_shape = ncol(X_train_keras)) %>%
+  layer_dropout(rate = 0.5) %>%
+  layer_dense(units = 8, activation = "relu") %>%
+  layer_dense(units = 2, activation = "softmax")
+
+# Compile
+ann_model %>% compile(
+  loss = "binary_crossentropy",
+  optimizer = optimizer_adam(),
+  metrics = c("accuracy")
+)
+
+# Train
+history <- ann_model %>% fit(X_train_keras, y_train_keras, epochs = 20, batch_size = 32)
+
+
 
 
 
