@@ -48,3 +48,13 @@ data %>%
 cor_matrix <- cor(data %>% select(-Class))
 corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.6)
 
+# Train-test split
+set.seed(42)
+train_index <- createDataPartition(data$Class, p = 0.8, list = FALSE)
+
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+
+
+
+
