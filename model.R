@@ -112,32 +112,66 @@ roc_auc_xgb <- roc_auc_vec(as.factor(y_test), xgb_preds)
 print(paste("XGBoost AUC:", roc_auc_xgb))
 
 
-print(paste("XGBoost AUC:", roc_auc_xgb))
+
+# Hyperparameter tuning (if needed)
+params_tune <- list(
+  objective = "binary:logistic",
+  eval_metric = "auc",
+  max_depth = 6,
+  eta = 0.1,
+  subsample = 0.8,
+  colsample_bytree = 0.8,
+  scale_pos_weight = sum(y_train == 0) / sum(y_train == 1)  # Adjust for class imbalance
+)
+
+# Perform cross-validation
+cv_results <- xgb.cv(params = params_tune, data = dtrain, nrounds = 100, 
+                     nfold = 5, showsd = TRUE, stratified = TRUE, 
+                     print_every_n = 10, early_stopping_rounds = 10)
+
+# Train the final model with the best nrounds from cross-validation
+best_nrounds <- cv_results$best_iteration
+xgb_model_tuned <- xgb.train(params = params_tune, data = dtrain, nrounds = best_nrounds,
+                             watchlist = list(train = dtrain), verbose = 0)
+
+# Make predictions and evaluate
+xgb_preds_tuned <- predict(xgb_model_tuned, as.matrix(X_test))
+xgb_class_tuned <- ifelse(xgb_preds_tuned > 0.5, 1, 0)
+confusion_matrix_xgb_tuned <- confusionMatrix(as.factor(xgb_class_tuned), as.factor(y_test))
+print(confusion_matrix_xgb_tuned)
+
+roc_auc_xgb_tuned <- roc_auc_vec(as.factor(y_test), xgb_preds_tuned)
+print(paste("Tuned XGBoost AUC:", roc_auc_xgb_tuned))
+
+f1 <- f_meas(data = tibble(truth = as.factor(y_test), estimate = as.factor(xgb_class_tuned)), 
+             truth = "truth", estimate = "estimate")
+print(f1)
 
 
-# Install and load necessary libraries
-library(randomForest)  # For Random Forest
-library(yardstick)     # For evaluation metrics
+# Load the ROSE package
+library(ROSE)
 
-# Train a Random Forest model
-rf_model <- randomForest(Class ~ ., data = train_data, ntree = 100, importance = TRUE)
+# Apply ROSE to balance the classes
+train_data_rose <- ROSE(Class ~ ., data = train_data, seed = 42)$data
 
-# Make predictions on the training and test data
-rf_train_preds <- predict(rf_model, newdata = train_data)
-rf_test_preds <- predict(rf_model, newdata = test_data)
+# Separate features and target variable
+X_train_rose <- train_data_rose %>% select(-Class)
+y_train_rose <- train_data_rose$Class
 
-# Confusion Matrix for train and test predictions
-train_cm_rf <- confusionMatrix(as.factor(rf_train_preds), as.factor(y_train))
-test_cm_rf <- confusionMatrix(as.factor(rf_test_preds), as.factor(y_test))
+# Train an XGBoost model on the balanced data
+dtrain_rose <- xgb.DMatrix(data = as.matrix(X_train_rose), label = y_train_rose)
+dtest <- xgb.DMatrix(data = as.matrix(X_test), label = y_test)
 
-# Print the confusion matrix
-print(train_cm_rf)
-print(test_cm_rf)
+# Train the model
+xgb_model_rose <- xgb.train(params = params, data = dtrain_rose, nrounds = 100,
+                            watchlist = list(train = dtrain_rose), verbose = 0)
 
-# Calculate F1 score
-f1_train_rf <- f_meas(as.factor(y_train), as.factor(rf_train_preds), positive = "1")
-f1_test_rf <- f_meas(as.factor(y_test), as.factor(rf_test_preds), positive = "1")
+# Make predictions and evaluate
+xgb_preds_rose <- predict(xgb_model_rose, as.matrix(X_test))
+xgb_class_rose <- ifelse(xgb_preds_rose > 0.5, 1, 0)
+confusion_matrix_xgb_rose <- confusionMatrix(as.factor(xgb_class_rose), as.factor(y_test))
+print(confusion_matrix_xgb_rose)
 
-# Print F1 scores
-print(paste("Random Forest F1 Score (Train):", f1_train_rf))
-print(paste("Random Forest F1 Score (Test):", f1_test_rf))
+roc_auc_xgb_rose <- roc_auc_vec(as.factor(y_test), xgb_preds_rose)
+print(paste("ROSE XGBoost AUC:", roc_auc_xgb_rose))
+
